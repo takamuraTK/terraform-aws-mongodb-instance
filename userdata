@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+function main() {
+  # install mongo
+  sudo su
+  yum update -y
+  cat <<EOF > /etc/yum.repos.d/mongodb-org-3.2.repo
+  [mongodb-org-3.2]
+  name=MongoDB Repository
+  baseurl=https://repo.mongodb.org/yum/amazon/2013.03/mongodb-org/3.2/x86_64/
+  gpgcheck=1
+  enabled=1
+  gpgkey=https://www.mongodb.org/static/pgp/server-3.2.asc
+  EOF
+  
+  yum install -y mongodb-org
+  chkconfig mongod on
+
+  # mongod.conf setting
+  sed -e "s/bindIp: 127.0.0.1/bindIp: 0.0.0.0\n  http:\n    enabled: true/" /etc/mongod.conf > ./tmp.conf
+  mv ./tmp.conf /etc/mongod.conf
+  sed -e "s/dbPath: \/var\/lib\/mongo/dbPath: \/data/" /etc/mongod.conf > ./tmp.conf
+  mv ./tmp.conf /etc/mongod.conf
+
+  # ebs setting
+  mkdir /data
+  chown -R mongod:mongod /data
+  mkfs -t xfs /dev/xvdf
+  mount /dev/xvdf /data
+
+  # startup
+  screen mongod --dbpath /data
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
